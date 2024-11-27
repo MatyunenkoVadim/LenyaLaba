@@ -1,6 +1,8 @@
 import csv
 import numpy as np
 import skfuzzy as fuzz
+import skfuzzy.control
+
 from converter import csv_from_excel
 from converter import excel_from_csv
 from graphs import show_graphs
@@ -73,16 +75,16 @@ def read_students_from_csv(file_path):
     return students
 
 # Определение лингвистических переменных
-attendance = ctrl.Antecedent(np.arange(0, 101, 1), 'attendance')
+attendance = ctrl.Antecedent(np.arange(0, 101, 0.1), 'attendance')
 kr1 = ctrl.Antecedent(np.arange(0, 6, 1), 'kr1')
 kr2 = ctrl.Antecedent(np.arange(0, 6, 1), 'kr2')
 kr3 = ctrl.Antecedent(np.arange(0, 6, 1), 'kr3')
 kr4 = ctrl.Antecedent(np.arange(0, 6, 1), 'kr4')
 class_work = ctrl.Antecedent(np.arange(0, 16, 1), 'class_work')
-auto_grade = ctrl.Consequent(np.arange(0, 2, 1), 'auto_grade')
+auto_grade = ctrl.Consequent(np.arange(0, 1.01, 0.01), 'auto_grade')
 
 # Определение функций принадлежности для посещаемости
-attendance['normal'] = fuzz.trimf(attendance.universe, [0, 100, 100])
+attendance['normal'] = fuzz.trapmf(attendance.universe, [25, 75, 100, 100])
 attendance['high'] = fuzz.trimf(attendance.universe, [75, 100, 100])
 
 # Определение функций принадлежности для контрольных работ
@@ -106,11 +108,21 @@ kr4['high'] = fuzz.trapmf(kr4.universe, [3, 4, 5, 5])
 class_work['poor'] = fuzz.trapmf(class_work.universe, [0, 0, 1, 2])
 class_work['good'] = fuzz.trapmf(class_work.universe, [1, 2, 15, 15])
 
-auto_grade['no'] = fuzz.trimf(auto_grade.universe, [0, 0, 1])
-auto_grade['yes'] = fuzz.trimf(auto_grade.universe, [1, 1, 1])
+# Определение функций принадлежности
+auto_grade['no'] = fuzz.trimf(auto_grade.universe, [0, 0, 0.5])   # Узкий треугольник около 0
+auto_grade['yes'] = fuzz.trimf(auto_grade.universe, [0.5, 1, 1])  # Узкий треугольник около 1
+
+auto_grade.defuzzify_method = 'centroid'
 
 # Определение правил
-rule1 = ctrl.Rule(attendance['normal'] & kr1['medium'] & kr2['medium'] & kr3['medium'] & kr4['medium'], auto_grade['yes'])
+rule1 = ctrl.Rule(
+    (attendance['normal'] | attendance['high'])
+    & (kr1['medium'] | kr1['high'])
+    & (kr2['medium'] | kr2['high'])
+    & (kr3['medium'] | kr3['high'])
+    & (kr4['medium'] | kr4['high'])
+    , auto_grade['yes']
+)
 
 # Для второго правила создаем несколько подправил, чтобы учесть все комбинации
 rule2 = ctrl.Rule(
@@ -123,16 +135,16 @@ rule2 = ctrl.Rule(
 )
 
 # Добавляем правило по умолчанию для всех остальных случаев
-default_rule = ctrl.Rule(~(attendance['normal'] & kr1['medium'] & kr2['medium'] & kr3['medium'] & kr4['medium']) &
-                         ~(attendance['high'] & class_work['good'] &
-                           ((kr1['high'] & kr2['high'] & kr3['high']) |
-                            (kr1['high'] & kr2['high'] & kr4['high']) |
-                            (kr1['high'] & kr3['high'] & kr4['high']) |
-                            (kr2['high'] & kr3['high'] & kr4['high']))),
-                         auto_grade['no'])
+rule3 = ctrl.Rule(
+    ~(
+        rule1.antecedent |
+        rule2.antecedent
+    ),
+    auto_grade['no']
+)
 
 # Создание системы управления
-auto_ctrl = ctrl.ControlSystem([rule1, rule2, default_rule])
+auto_ctrl = ctrl.ControlSystem([rule1, rule2, rule3])
 auto_simulation = ctrl.ControlSystemSimulation(auto_ctrl)
 
 def check_and_write_results(students, output_file):
@@ -147,10 +159,11 @@ def check_and_write_results(students, output_file):
             auto_simulation.input['kr3'] = student.grade_3
             auto_simulation.input['kr4'] = student.grade_4
             auto_simulation.input['class_work'] = student.class_work
-
+            # Вывод значений функций принадлежности
             try:
                 auto_simulation.compute()
                 result = auto_simulation.output['auto_grade']
+                print(f"Auto Grade: {result}")
                 result_text = 'Зачет' if result > 0.5 else 'Незачет'
                 writer.writerow([student.last_name, student.first_name, result, result_text])
             except Exception as e:
@@ -168,4 +181,4 @@ output_file = 'Temp/Зачет ИТ-42.csv'
 check_and_write_results(students2, output_file)
 excel_from_csv("Зачет.xlsx") # Название выходного файла
 
-show_graphs()
+# show_graphs()
