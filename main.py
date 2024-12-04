@@ -30,7 +30,6 @@ class Student:
                 f"{self.iz_number}, {self.iz_submitted}, {self.grade_1}, "
                 f"{self.grade_2}, {self.grade_3}, {self.absences}, {self.class_work})")
 
-
 def parse_int(value):
     if value.lower() == "неявка":
         return 0
@@ -44,7 +43,6 @@ def parse_int(value):
             else:
                 break
         return int(res)
-
 
 def read_students_from_csv(file_path):
     students = []
@@ -76,43 +74,36 @@ def read_students_from_csv(file_path):
 
 # Определение лингвистических переменных
 attendance = ctrl.Antecedent(np.arange(0, 101, 0.1), 'attendance')
-kr1 = ctrl.Antecedent(np.arange(0, 6, 1), 'kr1')
-kr2 = ctrl.Antecedent(np.arange(0, 6, 1), 'kr2')
-kr3 = ctrl.Antecedent(np.arange(0, 6, 1), 'kr3')
-kr4 = ctrl.Antecedent(np.arange(0, 6, 1), 'kr4')
+kr1 = ctrl.Antecedent(np.arange(0, 6, 0.5), 'kr1')
+kr2 = ctrl.Antecedent(np.arange(0, 6, 0.5), 'kr2')
+kr3 = ctrl.Antecedent(np.arange(0, 6, 0.5), 'kr3')
+kr4 = ctrl.Antecedent(np.arange(0, 6, 0.5), 'kr4')
 class_work = ctrl.Antecedent(np.arange(0, 16, 1), 'class_work')
 auto_grade = ctrl.Consequent(np.arange(0, 1.01, 0.01), 'auto_grade')
 
 # Определение функций принадлежности для посещаемости
-attendance['normal'] = fuzz.trapmf(attendance.universe, [25, 75, 100, 100])
-attendance['high'] = fuzz.trimf(attendance.universe, [75, 100, 100])
+attendance['normal'] = fuzz.trapmf(attendance.universe, [0, 100, 100, 100])
+attendance['high'] = fuzz.trimf(attendance.universe, [50, 100, 100])
 
 # Определение функций принадлежности для контрольных работ
-kr1['low'] = fuzz.trapmf(kr1.universe, [0, 0, 2, 3])
 kr1['medium'] = fuzz.trapmf(kr1.universe, [2, 3, 5, 5])
 kr1['high'] = fuzz.trapmf(kr1.universe, [3, 4, 5, 5])
 
-kr2['low'] = fuzz.trapmf(kr2.universe, [0, 0, 2, 3])
 kr2['medium'] = fuzz.trapmf(kr2.universe, [2, 3, 5, 5])
 kr2['high'] = fuzz.trapmf(kr2.universe, [3, 4, 5, 5])
 
-kr3['low'] = fuzz.trapmf(kr3.universe, [0, 0, 2, 3])
 kr3['medium'] = fuzz.trapmf(kr3.universe, [2, 3, 5, 5])
 kr3['high'] = fuzz.trapmf(kr3.universe, [3, 4, 5, 5])
 
-kr4['low'] = fuzz.trapmf(kr4.universe, [0, 0, 2, 3])
 kr4['medium'] = fuzz.trapmf(kr4.universe, [2, 3, 5, 5])
 kr4['high'] = fuzz.trapmf(kr4.universe, [3, 4, 5, 5])
 
 # Определение функций принадлежности для работы на парах
-class_work['poor'] = fuzz.trapmf(class_work.universe, [0, 0, 1, 2])
-class_work['good'] = fuzz.trapmf(class_work.universe, [1, 2, 15, 15])
+class_work['good'] = fuzz.trapmf(class_work.universe, [0, 2, 15, 15])
 
 # Определение функций принадлежности
-auto_grade['no'] = fuzz.trimf(auto_grade.universe, [0, 0, 0.5])   # Узкий треугольник около 0
-auto_grade['yes'] = fuzz.trimf(auto_grade.universe, [0.5, 1, 1])  # Узкий треугольник около 1
-
-auto_grade.defuzzify_method = 'centroid'
+auto_grade['no'] = fuzz.trimf(auto_grade.universe, [0, 0, 0])   # Узкий треугольник около 0
+auto_grade['yes'] = fuzz.trapmf(auto_grade.universe, [0, 0, 1, 1])  # Узкий треугольник около 1
 
 # Определение правил
 rule1 = ctrl.Rule(
@@ -124,7 +115,6 @@ rule1 = ctrl.Rule(
     , auto_grade['yes']
 )
 
-# Для второго правила создаем несколько подправил, чтобы учесть все комбинации
 rule2 = ctrl.Rule(
     attendance['high'] & class_work['good'] &
     ((kr1['high'] & kr2['high'] & kr3['high']) |
@@ -134,7 +124,6 @@ rule2 = ctrl.Rule(
     auto_grade['yes']
 )
 
-# Добавляем правило по умолчанию для всех остальных случаев
 rule3 = ctrl.Rule(
     ~(
         rule1.antecedent |
@@ -146,6 +135,18 @@ rule3 = ctrl.Rule(
 # Создание системы управления
 auto_ctrl = ctrl.ControlSystem([rule1, rule2, rule3])
 auto_simulation = ctrl.ControlSystemSimulation(auto_ctrl)
+
+auto_grade.defuzzify_method = 'lom'
+
+def custom_defuzz(x, mfx):
+    print("Custom defuzzification:")
+    print("x:", x)
+    print("mfx:", mfx)
+    max_mf = np.max(mfx)
+    if max_mf >= 0.5:
+        return 1
+    else:
+        return 0
 
 def check_and_write_results(students, output_file):
     with open(output_file, mode='w', newline='', encoding='utf-8-sig') as csvfile:
@@ -159,12 +160,14 @@ def check_and_write_results(students, output_file):
             auto_simulation.input['kr3'] = student.grade_3
             auto_simulation.input['kr4'] = student.grade_4
             auto_simulation.input['class_work'] = student.class_work
-            # Вывод значений функций принадлежности
+
             try:
                 auto_simulation.compute()
-                result = auto_simulation.output['auto_grade']
+                # Извлечение значений функций принадлежности
+                mfx = auto_simulation.output['auto_grade']
+                result = custom_defuzz(auto_grade.universe, mfx)
                 print(f"Auto Grade: {result}")
-                result_text = 'Зачет' if result > 0.5 else 'Незачет'
+                result_text = 'Зачет' if result == 1 else 'Незачет'
                 writer.writerow([student.last_name, student.first_name, result, result_text])
             except Exception as e:
                 writer.writerow([student.last_name, student.first_name, 'Ошибка', str(e)])
@@ -181,4 +184,4 @@ output_file = 'Temp/Зачет ИТ-42.csv'
 check_and_write_results(students2, output_file)
 excel_from_csv("Зачет.xlsx") # Название выходного файла
 
-# show_graphs()
+show_graphs()
