@@ -6,7 +6,7 @@ def show_graphs():
     # Определение универсов для каждой переменной
     attendance_universe = np.arange(0, 101, 1)
     kr_universe = np.arange(0, 6, 0.5)
-    class_work_universe = np.arange(0, 16, 1)
+    class_work_universe = np.arange(0, 17, 1)
 
     # Определение функций принадлежности для посещаемости
     attendance_normal = fuzz.trapmf(attendance_universe, [0, 100, 100, 100])
@@ -19,7 +19,7 @@ def show_graphs():
 
     # Определение функций принадлежности для работы в классе
     # class_work_poor = fuzz.trapmf(class_work_universe, [0, 0, 1, 2])
-    class_work_good = fuzz.trapmf(class_work_universe, [0, 2, 15, 15])
+    class_work_good = fuzz.trapmf(class_work_universe, [0, 2, 16, 16])
 
     # Создание графиков
     fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, figsize=(8, 12))

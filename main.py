@@ -22,7 +22,7 @@ class Student:
         self.grade_4 = grade_4
         self.absences = absences
         self.class_work = class_work
-        self.attendance = ((15 - absences) / 15) * 100
+        self.attendance = ((16 - absences) / 16) * 100
 
     def __repr__(self):
         return (f"Student({self.number}, {self.last_name}, {self.first_name}, "
@@ -77,7 +77,7 @@ def read_students_from_csv(file_path):
 # Определение лингвистических переменных
 attendance = ctrl.Antecedent(np.arange(0, 101, 0.01), 'attendance')
 kr = ctrl.Antecedent(np.arange(0, 6, 0.5), 'kr1')
-class_work = ctrl.Antecedent(np.arange(0, 16, 1), 'class_work')
+class_work = ctrl.Antecedent(np.arange(0, 17, 1), 'class_work')
 
 # Определение функций принадлежности для посещаемости
 attendance['normal'] = fuzz.trapmf(attendance.universe, [0, 100, 100, 100])
@@ -88,7 +88,7 @@ kr['medium'] = fuzz.trapmf(kr.universe, [2, 3, 5, 5])
 kr['high'] = fuzz.trapmf(kr.universe, [2.5, 4, 5, 5])
 
 # Определение функций принадлежности для работы на парах
-class_work['good'] = fuzz.trapmf(class_work.universe, [0, 2, 15, 15])
+class_work['good'] = fuzz.trapmf(class_work.universe, [0, 2, 16, 16])
 
 
 def rules_check(student):
