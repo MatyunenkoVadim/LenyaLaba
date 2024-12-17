@@ -134,7 +134,7 @@ def check_and_write_results(students, output_file):
             try:
                 result = rules_check(student)
                 print(f"Уверенность в оценке студента {student.last_name} {student.first_name}: {result}")
-                result_text = 'Зачет' if result >= 0.5 else 'Незачет'
+                result_text = 'Зачет' if result > 0.5 else 'Незачет'
                 writer.writerow([student.last_name, student.first_name, result, result_text])
             except Exception as e:
                 writer.writerow([student.last_name, student.first_name, 'Ошибка', str(e)])
